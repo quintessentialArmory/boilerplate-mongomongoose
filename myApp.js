@@ -11,7 +11,9 @@
 // Add `mongodb` and `mongoose` to the project's `package.json`. Then require 
 // `mongoose`. Store your **mLab** database URI in the private `.env` file 
 // as `MONGO_URI`. Connect to the database using `mongoose.connect(<Your URI>)`
-
+var mongoose = require('mongoose');
+var Schema = mongoose.Schema;
+mongoose.connect(process.env.MONGO_URI);
 
 /** # SCHEMAS and MODELS #
 /*  ====================== */
@@ -38,7 +40,54 @@
 
 // <Your code here >
 
-var Person /* = <Your Model> */
+var personSchema = new Schema({
+  name: {type: String, required: true},
+  age: Number,
+  favoriteFoods: [String]
+});
+
+var Person = mongoose.model('Person', personSchema);
+
+/*
+https://stackoverflow.com/questions/50144826/create-and-save-a-record-of-a-model-on-mongodb
+I haven't studied about the method you just used. But mongoose have it own method
+create(obj,callback) which does majority of the work for you. You can use it like this:
+
+var mongoose = require("mongoose");
+mongoose.connect(process.env.MONGO_URI);
+
+var Schema = mongoose.Schema;
+
+var personSchema = new Schema({
+  name:  {
+    type: String,
+    required: true
+  },
+  age: Number,
+  favoriteFoods:   [String]
+});
+
+var Person = mongoose.model('Person', personSchema);
+
+Person.create({
+  name: "Joe",
+  age: 24,
+  favoriteFoods: ['Apple', 'Banana']
+},function(err,result){
+    //code to manage error or result if Successful
+});
+
+All Schema Types
+required: boolean or function, if true adds a required validator for this property
+default: Any or function, sets a default value for the path. If the value is a
+function, the return value of the function is used as the default.
+select: boolean, specifies default projections for queries
+validate: function, adds a validator function for this property
+get: function, defines a custom getter for this property using Object.defineProperty().
+set: function, defines a custom setter for this property using Object.defineProperty().
+alias: string, mongoose >= 4.10.0 only. Defines a virtual with the given name that
+gets/sets this path.
+*/
 
 // **Note**: GoMix is a real server, and in real servers interactions with
 // the db are placed in handler functions, to be called when some event happens
@@ -75,10 +124,54 @@ var Person /* = <Your Model> */
 //    ...do your stuff here...
 // });
 
-var createAndSavePerson = function(done) {
-  
-  done(null /*, data*/);
+/*
+Constructing Documents
+An instance of a model is called a document. Creating them and saving to the
+database is easy.
 
+var Tank = mongoose.model('Tank', yourSchema);
+
+var small = new Tank({ size: 'small' });
+small.save(function (err) {
+  if (err) return handleError(err);
+  // saved!
+});
+
+// or
+
+Tank.create({ size: 'small' }, function (err, small) {
+  if (err) return handleError(err);
+  // saved!
+});
+
+// or, for inserting large batches of documents
+Tank.insertMany([{ size: 'small' }], function(err) {
+
+});
+Note that no tanks will be created/removed until the connection your model uses
+is open. Every model has an associated connection. When you use mongoose.model(),
+your model will use the default mongoose connection.
+
+mongoose.connect('localhost', 'gettingstarted');
+If you create a custom connection, use that connection's model() function instead.
+
+var connection = mongoose.createConnection('mongodb://localhost:27017/test');
+var Tank = connection.model('Tank', yourSchema);
+*/
+
+var createAndSavePerson = function(done) {
+
+  let joe = new Person({
+    name: "Joe",
+    age: 24,
+    favoriteFoods: ['Apple', 'Banana']
+  });
+
+  joe.save(function (error, data) {
+    if(error) return done(error);
+    done(null, data);
+    //console.log(data);
+  });
 };
 
 /** 4) Create many People with `Model.create()` */
@@ -92,8 +185,11 @@ var createAndSavePerson = function(done) {
 
 var createManyPeople = function(arrayOfPeople, done) {
     
-    done(null/*, data*/);
-    
+  Person.insertMany(arrayOfPeople, function(error, data) {
+    if(error) return done(error);
+    done(null, data);
+    //console.log(data);
+  });
 };
 
 /** # C[R]UD part II - READ #
@@ -108,9 +204,13 @@ var createManyPeople = function(arrayOfPeople, done) {
 // Use the function argument `personName` as search key.
 
 var findPeopleByName = function(personName, done) {
-  
-  done(null/*, data*/);
 
+  Person.find({name: personName}, null, null,
+              function (error, persons) {
+    if(error) return done(error);
+    done(null, persons);
+    //console.log(persons);
+  });
 };
 
 /** 6) Use `Model.findOne()` */
@@ -124,8 +224,12 @@ var findPeopleByName = function(personName, done) {
 
 var findOneByFood = function(food, done) {
 
-  done(null/*, data*/);
-  
+  Person.findOne({favoriteFoods: food}, null, null,
+              function (error, person) {
+    if(error) return done(error);
+    done(null, person);
+    //console.log(person);
+  });
 };
 
 /** 7) Use `Model.findById()` */
@@ -138,9 +242,13 @@ var findOneByFood = function(food, done) {
 // Use the function argument 'personId' as search key.
 
 var findPersonById = function(personId, done) {
-  
-  done(null/*, data*/);
-  
+
+  Person.findById(personId, null, null,
+              function (error, person) {
+    if(error) return done(error);
+    done(null, person);
+    //console.log(person);
+  });
 };
 
 /** # CR[U]D part III - UPDATE # 
@@ -170,8 +278,18 @@ var findPersonById = function(personId, done) {
 
 var findEditThenSave = function(personId, done) {
   var foodToAdd = 'hamburger';
-  
-  done(null/*, data*/);
+
+  Person.findById(personId, null, null,
+              function (error1, person) {
+    if(error1) return done(error1);
+    //console.log(person);
+    person.favoriteFoods.push(foodToAdd);
+    person.save(function (error2) {
+      if (error2) return done(error2);
+      done(null, person);
+      //console.log(person);
+    });
+  });
 };
 
 /** 9) New Update : Use `findOneAndUpdate()` */
@@ -192,7 +310,15 @@ var findEditThenSave = function(personId, done) {
 var findAndUpdate = function(personName, done) {
   var ageToSet = 20;
 
-  done(null/*, data*/);
+  Person.findOneAndUpdate(
+    {name: personName},
+    {age: ageToSet},
+    {new: true},
+    function (error, person) {
+      if (error) return done(error);
+      done(null, person);
+      //console.log(person);
+    });
 };
 
 /** # CRU[D] part IV - DELETE #
@@ -206,9 +332,14 @@ var findAndUpdate = function(personName, done) {
 // As usual, use the function argument `personId` as search key.
 
 var removeById = function(personId, done) {
-  
-  done(null/*, data*/);
-    
+
+  Person.findByIdAndRemove(
+    personId,
+    function (error, person) {
+      if (error) return done(error);
+      done(null, person);
+      //console.log(person);
+    });
 };
 
 /** 11) Delete many People */
@@ -224,7 +355,13 @@ var removeById = function(personId, done) {
 var removeManyPeople = function(done) {
   var nameToRemove = "Mary";
 
-  done(null/*, data*/);
+  Person.deleteMany(
+    {name: nameToRemove},
+    function (error, outcome) {
+      if (error) return done(error);
+      done(null, outcome);
+      //console.log(outcome);
+    });
 };
 
 /** # C[R]UD part V -  More about Queries # 
@@ -247,8 +384,17 @@ var removeManyPeople = function(done) {
 
 var queryChain = function(done) {
   var foodToSearch = "burrito";
-  
-  done(null/*, data*/);
+
+  Person
+    .find({favoriteFoods: foodToSearch})
+    .sort({name: 1})
+    .limit(2)
+    .select({age: 0})
+    .exec(function (error, outcome) {
+      if (error) return done(error);
+      done(null, outcome);
+      console.log(outcome);
+    });
 };
 
 /** **Well Done !!**
